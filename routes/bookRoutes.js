@@ -31,21 +31,14 @@ bookRouter.post(
   })
 );
 
-// Get all books (only admins can view all books)
+// Get all books
 bookRouter.get(
   '/',
-  authMiddleware, // Ensure user is authenticated
   asyncHandler(async (req, res) => {
-    // Find the authenticated user by ID
-    const user = await User.findById(req.user.id);
     // Check if the user is an admin
-    if (user && user.admin) {
-      const books = await Book.find(); // Fetch all books
-      res.status(200).send(books); // Send the books back
-    } else {
-      res.status(401);
-      throw new Error('Invalid credentials');
-    }
+    const books = await Book.find(); // Fetch all books
+    res.status(200).send(books); // Send the books back
+    
   })
 );
 
