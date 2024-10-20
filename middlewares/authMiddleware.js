@@ -1,76 +1,44 @@
-const asynchHandler = require('express-async-handler');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const asynchHandler = require('express-async-handler'); // Import express-async-handler to handle exceptions in async routes
+const jwt = require('jsonwebtoken'); // Import jsonwebtoken to work with JWTs (JSON Web Tokens)
+const User = require('../models/User'); // Import the User model to interact with user data in the database
 
-//Get the login user
-
-//Login Logic
-
-//1. First if the password matches
-//2 If it matches then add token using jwt to the user therefore we have to create a function that do
-
-//JWT
-
-//It takes the id of the created or login user and  a secret key to sign a token to the user
-
-//The first stage of jwt is done that's creating a token this is authentication
-//Next we have to do authorization which giving permissions to users to access protected route therefore to do that we have to create a middleware that will check the req.header if there is autorization with token and we pass the middleware to any route we want to protect
-
-//First let's see how to do it in postman
-//In post go to headers and for the key type Authorization and the value will [ Bearer your token]
-
-//Then in any request we can access the token as req.headers.authorization
-
-//Then after we get the token we will use jwt method to decode the user but remember when we were signing the user we only use the id hence after we get the id we can now make query to our database and return that user :(
-
-// const auth2 = (req, res, next) => {
-//   console.log(req.headers.authorization);
-//   next();
-// };
-
-// //Next let's create a route to pass this middleware to and assign Authorizatio Bearer your token in postman and make request to this
-
-// userRouter.get(
-//   '/profile2',
-//   auth2,
-//   asynchHandler(async (req, res) => {
-//     res.send('Profile');
-//   })
-// );
-
-// //=====PART TWO :(====
-
-//We have to get the token from the header and decode that token to get the user id
+// Middleware to authenticate users using JWT
+// We retrieve the token from the header, decode it to get the user ID, and then attach the user to the request object
 
 const authMiddleware = asynchHandler(async (req, res, next) => {
   let token;
-  // console.log(req.headers.authorization.startsWith('Bearer')); //This will return true
+
+  // Check if the authorization header exists and starts with 'Bearer'
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
     try {
-      //Grab only the token
-      // console.log(req.headers.authorization.split(' ')[1]);
+      // Extract the token by splitting the authorization header
       token = req.headers.authorization.split(' ')[1];
-      // console.log(token)
-      //Decode the user
+
+      // Decode the token to verify the user's identity using the secret key
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      // console.log(decoded.id);
-      //Find the user in DB
+
+      // Find the user in the database based on the decoded user ID
       const user = await User.findById(decoded.id);
-      //add the user to the request object as req.user
+
+      // Attach the user information to the request object as req.user
       req.user = user;
+
+      // Move on to the next middleware or route handler
       next();
     } catch (error) {
+      // If there's an error verifying the token, respond with a 401 Unauthorized status
       res.status(401);
-      throw new Error('Not authorised, token is fake');
+      throw new Error('Not authorized, token is invalid');
     }
   }
 
+  // If no token is found in the request, respond with a 401 Unauthorized status
   if (!token) {
     res.status(401);
-    throw new Error('Not authorised, no token');
+    throw new Error('Not authorized, no token provided');
   }
 });
 

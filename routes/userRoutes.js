@@ -1,139 +1,126 @@
 const express = require('express');
-const asyncHandler = require('express-async-handler');
-const authMiddleware = require('../middlewares/authMiddleware');
-const User = require('../models/User');
-const authTokenGenerator = require('../utils/authTokenGenerator');
-const userRouter = express.Router();
-const validator = require('validator');
-const Book = require("../models/Book");
-const Borrowing = require("../models/Borrowing");
+const asyncHandler = require('express-async-handler'); // Middleware for handling async errors
+const authMiddleware = require('../middlewares/authMiddleware'); // Authentication middleware
+const User = require('../models/User'); // User model
+const authTokenGenerator = require('../utils/authTokenGenerator'); // Token generation utility
+const userRouter = express.Router(); // Create an Express router
+const validator = require('validator'); // Input validation library
+const Book = require("../models/Book"); // Book model (if needed)
+const Borrowing = require("../models/Borrowing"); // Borrowing model
 
-//Create user
+// Create user
 userRouter.post(
   '/register',
   asyncHandler(async (req, res) => {
-    const { name, email, password, admin } = req.body;
-    const userExist = await User.findOne({ email: email });
+    const { name, email, password, admin } = req.body; // Destructure user data
+    const userExist = await User.findOne({ email }); // Check if user exists
 
     if (userExist) {
-      throw new Error('User Exist');
+      throw new Error('User already exists'); // Better error message
     }
-    if (!validator.isEmail(email)){
-        throw new Error('Invalid Email');
+    if (!validator.isEmail(email)) {
+      throw new Error('Invalid email'); // Validate email format
     }
-    if (!validator.isStrongPassword(password)){
-        throw new Error('Invalid password');
+    if (!validator.isStrongPassword(password)) {
+      throw new Error('Password is too weak'); // Validate password strength
     }
-    const user = await User.create({ name, email, password, admin });
+    const user = await User.create({ name, email, password, admin }); // Create user
     if (user) {
-      res.status(201);
-      res.json({
+      res.status(201).json({
         _id: user._id,
         name: user.name,
         email: user.email,
-        password: user.password,
-        token: authTokenGenerator(user._id),
+        token: authTokenGenerator(user._id), // Generate token
       });
     }
   })
 );
 
+// User login
 userRouter.post(
   '/login',
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email: email });
-    //Compare password
+    const { email, password } = req.body; // Destructure login data
+    const user = await User.findOne({ email }); // Find user by email
+    // Compare password
     if (user && (await user.isPasswordMatch(password))) {
-      //res.status(201);
-      res.status(200);
-      res.json({
+      res.status(200).json({
         _id: user._id,
         name: user.name,
-        password: user.password,
         email: user.email,
-        token: authTokenGenerator(user._id),
+        token: authTokenGenerator(user._id), // Generate token
       });
     } else {
       res.status(401);
-      throw new Error('Invalid login credentials');
+      throw new Error('Invalid login credentials'); // Invalid login response
     }
   })
 );
 
-//GET PROFILE
-
+// GET USER PROFILE
 userRouter.get(
   '/profile',
-  authMiddleware,
+  authMiddleware, // Ensure the user is authenticated
   asyncHandler(async (req, res) => {
     try {
-      const user = await User.findById(req.user.id);
+      const user = await User.findById(req.user.id); // Find the user by ID
       if (!user) {
-          res.status(401);
-          throw new Error(`You don't have any profile yet`);
+        res.status(401);
+        throw new Error(`You don't have any profile yet`); // User not found
       }
-      res.status(201);
-      res.send(user);
+      res.status(200).send(user); // Return user profile
     } catch (error) {
       res.status(500);
-      throw new Error('Server error');
+      throw new Error('Server error'); // Handle server errors
     }
   })
 );
 
-//UPDATE PROFILE
-
+// UPDATE USER PROFILE
 userRouter.put(
   '/profile/update',
-  authMiddleware,
+  authMiddleware, // Ensure the user is authenticated
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id); // Find the user by ID
     if (user) {
-      user.name = req.body.name || user.name;
-      user.email = req.body.email || user.email;
-      //This will encrypt automatically in our model
+      user.name = req.body.name || user.name; // Update name if provided
+      user.email = req.body.email || user.email; // Update email if provided
+      // Validate and update password
       if (req.body.password) {
-          if(validator.isStrongPassword(req.body.password)) {
-              user.password = req.body.password || user.password;
-          }else {
-              throw new Error('Invalid password');
-          }
+        if (validator.isStrongPassword(req.body.password)) {
+          user.password = req.body.password; // Update password (auto-encrypt)
+        } else {
+          throw new Error('Invalid password'); // Invalid password response
+        }
       }
-      const updateUser = await user.save();
+      const updatedUser = await user.save(); // Save updated user
       res.json({
-        _id: updateUser._id,
-        name: updateUser.name,
-        password: updateUser.password,
-        email: updateUser.email,
-        token: authTokenGenerator(updateUser._id),
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        token: authTokenGenerator(updatedUser._id), // Generate token
       });
     } else {
       res.status(401);
-      throw new Error('User Not found');
+      throw new Error('User not found'); // User not found response
     }
   })
 );
 
-
-//get history
-
+// Get borrowing history
 userRouter.get(
-    '/history',
-    authMiddleware,
-    asyncHandler(async (req, res) => {
-        const user = await User.findById(req.user.id);
-        if (user){
-            const result = await Borrowing.find({borroedBy: user._id});
-            res.status(200);
-            res.json(result);
-        }else {
-            res.status(401);
-            throw new Error(`You don't have any profile yet`);
-        }
-        }
-    )
-)
+  '/history',
+  authMiddleware, // Ensure the user is authenticated
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user.id); // Find the user by ID
+    if (user) {
+      const result = await Borrowing.find({ borrowedBy: user._id }); // Fetch borrowing history
+      res.status(200).json(result); // Return borrowing history
+    } else {
+      res.status(401);
+      throw new Error(`You don't have any profile yet`); // User not found
+    }
+  })
+);
 
-
-module.exports = { userRouter };
+module.exports = { userRouter }; // Export the user router
