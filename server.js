@@ -6,7 +6,7 @@ const error = require('./middlewares/errorMiddleware');
 const bookRouter = require('./routes/bookRoutes');
 const reportRouter = require("./routes/reportRouter");
 const borrowingRouter = require("./routes/borrowingRoutes");
-require('./config/dbConnect')();
+require('./config/DBConnect')();
 const app = express();
 
 //Routes
@@ -33,7 +33,7 @@ app.use(error.notfoundErrorMiddleware);
 app.use(error.errorMiddlewareHandler);
 
 //End of deployment
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

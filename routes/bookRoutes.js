@@ -106,9 +106,49 @@ bookRouter.put(
     })
 );
 
-//find a book
+//search books
+
 bookRouter.get(
-  '/:id',
+    '/search',
+    asyncHandler(async (req, res) => {
+        console.log("here");
+        try {
+            console.log(req.query)
+            // Extract query parameters from the request
+            const { category, author, title, minCopies } = req.body;
+
+            // Build a dynamic query object
+            const query = {};
+
+            if (category) {
+                query.category = category;
+            }
+            if (author) {
+                query.author = { $regex: author, $options: 'i' }; // Case-insensitive search for author
+            }
+            if (title) {
+                query.title = { $regex: title, $options: 'i' }; // Case-insensitive search for title
+            }
+            if (minCopies) {
+                query.copies = { $gte: parseInt(minCopies) }; // Filter by available copies
+            }
+
+            // Fetch books based on the query
+            const books = await Book.find(query);
+
+            // Return the result
+            res.status(200).json(books);
+        } catch (error) {
+            res.status(500);
+            throw new Error('No book found');
+        }
+    })
+);
+
+//find a book
+
+bookRouter.get(
+  '/get/:id',
   asyncHandler(async (req, res) => {
     try {
       const book = await Book.findById(req.params.id);
