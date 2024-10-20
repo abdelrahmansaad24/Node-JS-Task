@@ -75,15 +75,14 @@ borrowingRouter.post('/return/:id',
 
 // Get books borrowed by a user
 borrowingRouter.get(
-    '/borrowed',
+    '/borrow/history',
     authMiddleware, // Ensure user is authenticated
     asyncHandler(async (req, res) => {
         try {
             const user = await User.findById(req.user.id); // Find the user by ID
             if (user) {
                 const activeBorrowings = await Borrowing.find({
-                    borrowedBy: user._id, // Match borrowings by the user's ID
-                    returned: false // Only get borrowings that are not returned
+                    borrowedBy: user._id // Match borrowings by the user's ID
                 }).populate('bookId', 'title author') // Optionally populate book details
                   .exec();
                 res.status(200).json(activeBorrowings); // Respond with active borrowings
@@ -93,56 +92,6 @@ borrowingRouter.get(
         } catch (error) {
             res.status(500);
             throw new Error('Server error'); // Handle server errors
-        }
-    })
-);
-
-// Get report about most popular n books
-borrowingRouter.get(
-    '/popular/:n',
-    authMiddleware, // Ensure user is authenticated
-    asyncHandler(async (req, res) => {
-        const user = await User.findById(req.user.id); // Find the user by ID
-        if (!user || !user.admin) { // Check if the user is an admin
-            res.status(401);
-            throw new Error(`Unauthorized access`); // Handle unauthorized access
-        }
-        try {
-            const n = parseInt(req.params.n, 10); // Get the number of top books to return
-            const result = await Borrowing.aggregate([
-                {
-                    $group: {
-                        _id: '$bookId', // Group by bookId
-                        borrowCount: { $sum: 1 }, // Count the number of borrowings
-                    },
-                },
-                {
-                    $sort: { borrowCount: -1 }, // Sort by borrowCount in descending order
-                },
-                {
-                    $limit: n, // Limit to top n results
-                },
-                {
-                    $lookup: {
-                        from: 'Books', // The collection where book details are stored
-                        localField: '_id',
-                        foreignField: '_id',
-                        as: 'bookDetails',
-                    },
-                },
-                {
-                    $project: {
-                        _id: 0, // Exclude the MongoDB ID
-                        bookId: '$_id', // Include the bookId
-                        borrowCount: 1, // Include the borrow count
-                        bookDetails: { $arrayElemAt: ['$bookDetails', 0] }, // Include book details
-                    },
-                },
-            ]);
-            res.status(200).json(result); // Respond with the results
-        } catch (error) {
-            res.status(500);
-            throw new Error('Error fetching popular books:'); // Handle errors during aggregation
         }
     })
 );
